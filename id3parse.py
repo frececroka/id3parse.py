@@ -157,6 +157,10 @@ class ID3:
 		self.header = header
 		self.body = body
 
+	@property
+	def frames(self):
+		return self.body.frames
+
 	def find_frame_by_name(self, name):
 		return self.body.find_frame_by_name(name)
 
