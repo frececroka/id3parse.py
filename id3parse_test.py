@@ -140,9 +140,8 @@ class TestID3Frame(unittest.TestCase):
 	def test_unsynchronisation(self):
 		frame_data = b'A....\xff\xf0.......\xff\x00.....O'
 
-		frame_header = id3parse.ID3FrameHeader.from_name('PRIV')
-		frame_header.format_flags.unsynced = True
-		frame = id3parse.ID3UnknownFrame(frame_header, frame_data)
+		frame = id3parse.ID3UnknownFrame.from_scratch('PRIV', frame_data)
+		frame.header.format_flags.unsynced = True
 
 		serialized_frame = frame.serialize()
 		self.assertNotIn(b'\xff\xf0', serialized_frame)
@@ -199,10 +198,12 @@ class TestID3TextFrame(unittest.TestCase):
 		self.assertEqual('Rénault', frame.text)
 
 	def test_serialization(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('TIT2')
-		frame = id3parse.ID3TextFrame(frame_header, 'Caught Me Thinking')
-
+		frame = id3parse.ID3TextFrame.from_scratch('TIT2', 'Caught Me Thinking')
 		self.assertEqual(b'TIT2\x00\x00\x00\x14\x00\x00\x03Caught Me Thinking\x00', frame.serialize())
+
+	def test_creation_from_scratch_with_illegal_frame_name(self):
+		with self.assertRaises(ValueError):
+			id3parse.ID3TextFrame.from_scratch('ABCD', 'Caught Me Thinking')
 
 
 class TestID3CommentFrame(unittest.TestCase):
@@ -216,23 +217,19 @@ class TestID3CommentFrame(unittest.TestCase):
 		self.assertEqual('the actual comment', frame.comment)
 
 	def test_serialization(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('COMM')
-		frame = id3parse.ID3CommentFrame(frame_header, 'deu', 'a short description', 'the actual comment')
-
+		frame = id3parse.ID3CommentFrame.from_scratch('deu', 'a short description', 'the actual comment')
 		self.assertEqual(b'COMM\x00\x00\x00\x2a\x00\x00\x03deua short description\x00the actual comment', frame.serialize())
 
 
 class TestID3PopularimeterFrame(unittest.TestCase):
 
 	def test_serialization(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('POPM')
-		frame = id3parse.ID3PopularimeterFrame(frame_header, 'user@localhost', 128, 30)
+		frame = id3parse.ID3PopularimeterFrame.from_scratch('user@localhost', 128, 30)
 
 		self.assertEqual(b'POPM\x00\x00\x00\x14\x00\x00user@localhost\x00\x80\x00\x00\x00\x1e', frame.serialize())
 
 	def test_serialization_of_large_play_counter(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('POPM')
-		frame = id3parse.ID3PopularimeterFrame(frame_header, 'user@localhost', 128, 9999999999)
+		frame = id3parse.ID3PopularimeterFrame.from_scratch('user@localhost', 128, 9999999999)
 
 		self.assertEqual(b'POPM\x00\x00\x00\x15\x00\x00user@localhost\x00\x80\x02\x54\x0b\xe3\xff', frame.serialize())
 
@@ -248,15 +245,13 @@ class TestID3PopularimeterFrame(unittest.TestCase):
 		self.assertEqual(9999999999, frame.play_counter)
 
 	def test_rating_overflow(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('POPM')
-		frame = id3parse.ID3PopularimeterFrame(frame_header, 'user@localhost', 128, 30)
+		frame = id3parse.ID3PopularimeterFrame.from_scratch('user@localhost', 128, 30)
 
 		with self.assertRaises(ValueError):
 			frame.rating = 256
 
 	def test_rating_underflow(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('POPM')
-		frame = id3parse.ID3PopularimeterFrame(frame_header, 'user@localhost', 128, 30)
+		frame = id3parse.ID3PopularimeterFrame.from_scratch('user@localhost', 128, 30)
 
 		with self.assertRaises(ValueError):
 			frame.rating = -1
@@ -265,8 +260,7 @@ class TestID3PopularimeterFrame(unittest.TestCase):
 class TestID3PlayCounterFrame(unittest.TestCase):
 
 	def test_serialization(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('PCNT')
-		frame = id3parse.ID3PlayCounterFrame(frame_header, 30)
+		frame = id3parse.ID3PlayCounterFrame.from_scratch(30)
 
 		self.assertEqual(b'PCNT\x00\x00\x00\x04\x00\x00\x00\x00\x00\x1e', frame.serialize())
 
@@ -275,8 +269,7 @@ class TestID3PlayCounterFrame(unittest.TestCase):
 		self.assertEqual(30, frame.play_counter)
 
 	def test_serialization_of_large_play_counter(self):
-		frame_header = id3parse.ID3FrameHeader.from_name('PCNT')
-		frame = id3parse.ID3PlayCounterFrame(frame_header, 9999999999)
+		frame = id3parse.ID3PlayCounterFrame.from_scratch(9999999999)
 
 		self.assertEqual(b'PCNT\x00\x00\x00\x05\x00\x00\x02\x54\x0b\xe3\xff', frame.serialize())
 

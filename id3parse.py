@@ -492,6 +492,13 @@ class ID3TextFrame(ID3Frame):
 		except ValueError:
 			return byte_array
 
+	def from_scratch(name, text):
+		if not ID3TextFrame.can_handle(name):
+			raise ValueError('ID3TextFrame cannot handle frame name "%s"' % name)
+
+		header = ID3FrameHeader.from_name(name)
+		return ID3TextFrame(header, text)
+
 	def __init__(self, header, text):
 		super(ID3TextFrame, self).__init__(header)
 		self.text = text
@@ -527,6 +534,10 @@ class ID3CommentFrame(ID3Frame):
 		encoded_comment = byte_array[encoded_comment_start:]
 		comment = encoded_comment.decode(encoding)
 
+		return ID3CommentFrame(header, language, description, comment)
+
+	def from_scratch(language, description, comment):
+		header = ID3FrameHeader.from_name('COMM')
 		return ID3CommentFrame(header, language, description, comment)
 
 	def __init__(self, header, language, description, comment):
@@ -569,6 +580,10 @@ class ID3PopularimeterFrame(ID3Frame):
 
 		return ID3PopularimeterFrame(header, email, rating, play_counter)
 
+	def from_scratch(email, rating, play_counter):
+		header = ID3FrameHeader.from_name('POPM')
+		return ID3PopularimeterFrame(header, email, rating, play_counter)
+
 	def __init__(self, header, email, rating, play_counter):
 		super(ID3PopularimeterFrame, self).__init__(header)
 
@@ -607,6 +622,10 @@ class ID3PlayCounterFrame(ID3Frame):
 		play_counter = unpack_int(byte_array, base=DEFAULT_BASE)
 		return ID3PlayCounterFrame(header, play_counter)
 
+	def from_scratch(play_counter):
+		header = ID3FrameHeader.from_name('PCNT')
+		return ID3PlayCounterFrame(header, play_counter)
+
 	def __init__(self, header, play_counter):
 		super(ID3PlayCounterFrame, self).__init__(header)
 		self.play_counter = play_counter
@@ -622,6 +641,10 @@ class ID3UnknownFrame(ID3Frame):
 
 	def from_byte_array(header, byte_array):
 		return ID3UnknownFrame(header, byte_array)
+
+	def from_scratch(name, raw_bytes):
+		header = ID3FrameHeader.from_name(name)
+		return ID3UnknownFrame(header, raw_bytes)
 
 	def __init__(self, header, raw_bytes):
 		super(ID3UnknownFrame, self).__init__(header)
