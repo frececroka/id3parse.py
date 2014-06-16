@@ -163,6 +163,9 @@ class ID3:
 	def find_frames_by_name(self, name):
 		return self.body.find_frames_by_name(name)
 
+	def add_frame(self, frame):
+		self.body.add_frame(frame)
+
 	def serialize(self):
 		if self.header.flags.has_extended_header:
 			raise ID3UnsupportedFeatureError('Extended header not supported during serialization.')
@@ -296,6 +299,9 @@ class ID3Body:
 
 	def find_frames_by_name(self, name):
 		return [f for f in self.frames if f.name == name]
+
+	def add_frame(self, frame):
+		self.frames.append(frame)
 
 	def serialize(self):
 		byte_array = b''

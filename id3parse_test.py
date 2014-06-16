@@ -62,11 +62,7 @@ class TestID3(unittest.TestCase):
 	def test_footer(self):
 		id3 = id3parse.ID3.from_scratch()
 		id3.header.flags.has_footer = True
-
-		example_frame_header = id3parse.ID3FrameHeader.from_name('TIT2')
-		example_frame = id3parse.ID3TextFrame(example_frame_header, 'Why Don\'t You Get A Job?')
-
-		id3.body.frames.append(example_frame)
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TIT2', 'Why Don\'t You Get A Job?'))
 
 		serialized_tag = id3.serialize()
 
