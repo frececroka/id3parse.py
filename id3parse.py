@@ -102,6 +102,42 @@ def extract_terminated_string(byte_array, terminator):
 		if terminator_index % len(terminator) == 0:
 			return byte_array[0:terminator_index]
 
+
+class ByteReader:
+
+	def __init__(self, byte_array):
+		self.byte_array = byte_array
+
+	def peek(self, n=1):
+		bts = self.byte_array[0:n]
+
+		if n == 1:
+			return bts[0]
+		else:
+			return bts
+
+	def read(self, n=1):
+		bts = self.peek(n)
+		self.skip(n)
+
+		return bts
+
+	def skip(self, n):
+		self.byte_array = self.byte_array[n:]
+
+	def tail(self):
+		return self.byte_array
+
+	def clone(self, n=None):
+		if n is None:
+			return ByteReader(self.tail())
+		else:
+			return ByteReader(self.read(n))
+
+	def bytes_left(self):
+		return len(self.byte_array)
+
+
 TAG_HEADER_SIZE = 10
 FRAME_HEADER_SIZE = 10
 FOOTER_SIZE = 10
@@ -114,19 +150,18 @@ DEFAULT_BASE = 256
 class ID3:
 
 	def from_byte_array(byte_array):
-		header = ID3Header.from_byte_array(byte_array[0:TAG_HEADER_SIZE])
+		br = ByteReader(byte_array)
+
+		header = ID3Header.from_byte_reader(br.clone(TAG_HEADER_SIZE))
+		body_size = header.tag_size
 
 		extended_header = None
-		body_start_byte = TAG_HEADER_SIZE
-		body_size = header.tag_size
 		if header.flags.has_extended_header:
-			extended_header = ID3ExtendedHeader.from_byte_array(byte_array[TAG_HEADER_SIZE:])
-
-			body_start_byte += extended_header.size
+			extended_header = ID3ExtendedHeader.from_byte_reader(br.clone())
+			br.skip(extended_header.size)
 			body_size -= extended_header.size
 
-		body_bytes = byte_array[body_start_byte:body_start_byte+header.tag_size]
-		body = ID3Body.from_byte_array(body_bytes, tag_version=header.major_version)
+		body = ID3Body.from_byte_reader(br.clone(body_size), tag_version=header.major_version)
 		return ID3(header, body)
 
 	def from_input_stream(input_stream):
@@ -194,21 +229,24 @@ class ID3Header:
 				'Header must be %d bytes, but was %d bytes' % (TAG_HEADER_SIZE, len(byte_array))
 			)
 
-		identifier = byte_array[0:3].decode('ascii')
+		return ID3Header.from_byte_reader(ByteReader(byte_array))
+
+	def from_byte_reader(br):
+		identifier = br.read(3).decode('ascii')
 		if identifier != 'ID3':
 			raise ID3IllegalFormatError(
 				'ID3 identifier has to be "ID3", but was "%s"' % identifier
 			)
 
-		major_version = byte_array[3]
-		minor_version = byte_array[4]
+		major_version = br.read()
+		minor_version = br.read()
 		if major_version > SUPPORTED_MAJOR_VERSION:
 			raise ID3UnsupportedVersionError(
 				'Unsupported major version: ID3v2.%d.%d' % (major_version, minor_version)
 			)
 
-		flags = ID3HeaderFlags.from_byte(byte_array[5])
-		tag_size = unpack_int(byte_array[6:10], base=SYNCHSAFE_BASE)
+		flags = ID3HeaderFlags.from_byte(br.read())
+		tag_size = unpack_int(br.read(4), base=SYNCHSAFE_BASE)
 
 		return ID3Header(flags, tag_size, major_version)
 
@@ -265,7 +303,10 @@ class ID3HeaderFlags:
 class ID3ExtendedHeader:
 
 	def from_byte_array(byte_array):
-		size = unpack_int(byte_array[0:4], base=SYNCHSAFE_BASE)
+		return ID3ExtendedHeader.from_byte_reader(ByteReader(byte_array))
+
+	def from_byte_reader(br):
+		size = unpack_int(br.read(4), base=SYNCHSAFE_BASE)
 		return ID3ExtendedHeader(size)
 
 	def __init__(self, size):
@@ -275,12 +316,15 @@ class ID3ExtendedHeader:
 class ID3Body:
 
 	def from_byte_array(byte_array, tag_version):
-		frames = []
-		while len(byte_array) > 0 and byte_array[0] != 0:
-			frame = ID3Frame.from_byte_array(byte_array, tag_version=tag_version)
-			frames.append(frame)
+		return ID3Body.from_byte_reader(ByteReader(byte_array), tag_version)
 
-			byte_array = byte_array[FRAME_HEADER_SIZE+frame.header.body_size:]
+	def from_byte_reader(br, tag_version):
+		frames = []
+		while br.bytes_left() > 0 and br.peek() != 0:
+			frame = ID3Frame.from_byte_reader(br.clone(), tag_version=tag_version)
+			br.skip(FRAME_HEADER_SIZE + frame.header.body_size)
+
+			frames.append(frame)
 
 		return ID3Body(frames)
 
@@ -321,9 +365,13 @@ class ID3Frame:
 	id3_frame_implementations = []
 
 	def from_byte_array(byte_array, tag_version=4):
-		header = ID3FrameHeader.from_byte_array(byte_array, tag_version=tag_version)
+		return ID3Frame.from_byte_reader(ByteReader(byte_array), tag_version)
 
-		body_bytes = byte_array[header.size:header.size+header.body_size]
+	def from_byte_reader(br, tag_version):
+		header = ID3FrameHeader.from_byte_reader(br.clone(), tag_version=tag_version)
+		br.skip(header.size)
+
+		body_bytes = br.read(header.body_size)
 		if header.format_flags.unsynced:
 			body_bytes = deunsync(body_bytes)
 
@@ -348,28 +396,31 @@ class ID3Frame:
 class ID3FrameHeader:
 
 	def from_byte_array(byte_array, tag_version=4):
-		name = byte_array[0:4].decode('ascii')
+		return ID3FrameHeader.from_byte_reader(ByteReader(byte_array), tag_version)
 
-		body_size_bytes = byte_array[4:8]
+	def from_byte_reader(br, tag_version):
+		name = br.read(4).decode('ascii')
+
+		body_size_bytes = br.read(4)
 		body_size = 0
 		if tag_version == 4:
 			body_size = unpack_int(body_size_bytes, base=SYNCHSAFE_BASE)
 		else:
 			body_size = unpack_int(body_size_bytes, base=DEFAULT_BASE)
 
-		status_flags = ID3FrameStatusFlags.from_byte(byte_array[8])
-		format_flags = ID3FrameFormatFlags.from_byte(byte_array[9])
+		status_flags = ID3FrameStatusFlags.from_byte(br.read())
+		format_flags = ID3FrameFormatFlags.from_byte(br.read())
 
 		total_size = FRAME_HEADER_SIZE
 
 		grouping_id = None
 		if format_flags.has_grouping_id:
-			grouping_id = byte_array[total_size]
+			grouping_id = br.read()
 			total_size += 1
 
 		uncompressed_body_size = None
 		if format_flags.has_data_length_indicator:
-			uncompressed_body_size = unpack_int(byte_array[total_size:total_size+4], base=SYNCHSAFE_BASE)
+			uncompressed_body_size = unpack_int(br.read(4), base=SYNCHSAFE_BASE)
 			total_size += 4
 
 		if format_flags.compressed:
@@ -488,10 +539,12 @@ class ID3TextFrame(ID3Frame):
 		return False
 
 	def from_byte_array(header, byte_array):
-		encoding_byte = byte_array[0]
+		br = ByteReader(byte_array)
+
+		encoding_byte = br.read()
 		encoding, terminator = decode_text_encoding(encoding_byte)
 
-		encoded_text = ID3TextFrame.get_encoded_text(byte_array[1:], terminator)
+		encoded_text = ID3TextFrame.get_encoded_text(br.tail(), terminator)
 		text = encoded_text.decode(encoding)
 
 		return ID3TextFrame(header, text)
@@ -532,16 +585,18 @@ class ID3CommentFrame(ID3Frame):
 		return name == 'COMM'
 
 	def from_byte_array(header, byte_array):
-		encoding_byte = byte_array[0]
+		br = ByteReader(byte_array)
+
+		encoding_byte = br.read()
 		encoding, terminator = decode_text_encoding(encoding_byte)
 
-		language = byte_array[1:4].decode('iso-8859-1')
+		language = br.read(3).decode('iso-8859-1')
 
-		encoded_description = extract_terminated_string(byte_array[4:], terminator)
+		encoded_description = extract_terminated_string(br.tail(), terminator)
 		description = encoded_description.decode(encoding)
 
-		encoded_comment_start = 4 + len(encoded_description) + len(terminator)
-		encoded_comment = byte_array[encoded_comment_start:]
+		br.skip(len(encoded_description) + len(terminator))
+		encoded_comment = br.tail()
 		comment = encoded_comment.decode(encoding)
 
 		return ID3CommentFrame(header, language, description, comment)
@@ -579,14 +634,14 @@ class ID3PopularimeterFrame(ID3Frame):
 		return name == 'POPM'
 
 	def from_byte_array(header, byte_array):
-		encoded_email = extract_terminated_string(byte_array, b'\x00')
-		byte_array = byte_array[len(encoded_email + b'\x00'):]
+		br = ByteReader(byte_array)
+
+		encoded_email = extract_terminated_string(br.tail(), b'\x00')
 		email = encoded_email.decode('iso-8859-1')
+		br.skip(len(encoded_email + b'\x00'))
 
-		rating = byte_array[0]
-		byte_array = byte_array[1:]
-
-		play_counter = unpack_int(byte_array, base=DEFAULT_BASE)
+		rating = br.read()
+		play_counter = unpack_int(br.tail(), base=DEFAULT_BASE)
 
 		return ID3PopularimeterFrame(header, email, rating, play_counter)
 
