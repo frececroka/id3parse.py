@@ -205,11 +205,16 @@ class ID3:
 	def add_frame(self, frame):
 		self.body.add_frame(frame)
 
-	def serialize(self):
+	def serialize(self, min_length=0):
 		if self.header.flags.has_extended_header:
 			raise ID3UnsupportedFeatureError('Extended header not supported during serialization.')
 
 		body_bytes = self.body.serialize()
+
+		min_length -= TAG_HEADER_SIZE
+		if len(body_bytes) < min_length:
+			body_bytes += b'\x00' * (min_length - len(body_bytes))
+
 		self.header.tag_size = len(body_bytes)
 
 		footer_bytes = b''

@@ -46,6 +46,13 @@ class TestID3(unittest.TestCase):
 		id3 = id3parse.ID3.from_byte_array(id3.serialize())
 		self.verify_average_case_tag(id3)
 
+	def test_serialization_with_minimal_length(self):
+		id3 = id3parse.ID3.from_scratch()
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TPE1', 'The Offspring'))
+
+		self.assertGreater(500, len(id3.serialize()))
+		self.assertEqual(500, len(id3.serialize(min_length=500)))
+
 	def verify_average_case_tag(self, id3):
 		self.assertEqual(21, len(id3.body.frames))
 		self.assertEqual('11', id3.find_frame_by_name('TRCK').text)
