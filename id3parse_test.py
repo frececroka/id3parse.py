@@ -26,6 +26,10 @@ class TestID3Header(unittest.TestCase):
 		header = id3parse.ID3Header.from_byte_array(b'ID3\x04\x00\x50\x00\x00\x08\x00')
 		self.assertEqual(header.tag_size, 1024)
 
+	def test_missing_id3_tag(self):
+		with self.assertRaises(id3parse.ID3IllegalFormatError):
+			header = id3parse.ID3Header.from_byte_array(b'\xff\xf3\x23\x04\x00\x50\x00\x00\x08\x00')
+
 
 class TestID3(unittest.TestCase):
 

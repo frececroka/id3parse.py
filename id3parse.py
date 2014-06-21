@@ -232,8 +232,8 @@ class ID3Header:
 		return ID3Header.from_byte_reader(ByteReader(byte_array))
 
 	def from_byte_reader(br):
-		identifier = br.read(3).decode('ascii')
-		if identifier != 'ID3':
+		identifier = br.read(3)
+		if identifier != b'ID3':
 			raise ID3IllegalFormatError(
 				'ID3 identifier has to be "ID3", but was "%s"' % identifier
 			)
