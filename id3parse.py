@@ -108,17 +108,17 @@ class ByteReader:
 	def __init__(self, byte_array):
 		self.byte_array = byte_array
 
-	def peek(self, n=1):
-		bts = self.byte_array[0:n]
+	def peek(self, n=None):
+		bts = self.byte_array[0:n or 1]
 
-		if n == 1:
+		if n is None:
 			return bts[0]
 		else:
 			return bts
 
-	def read(self, n=1):
+	def read(self, n=None):
 		bts = self.peek(n)
-		self.skip(n)
+		self.skip(n or 1)
 
 		return bts
 

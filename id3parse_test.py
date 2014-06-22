@@ -239,6 +239,10 @@ class TestID3Frame(unittest.TestCase):
 		frame = id3parse.ID3Frame.from_byte_array(serialized_frame)
 		self.assertEqual(frame_data, frame.raw_bytes)
 
+	def test_frame_with_only_a_single_byte(self):
+		frame = id3parse.ID3Frame.from_byte_array(b'TRCK\x00\x00\x00\x01\x00\x00\x00')
+		self.assertEqual('', frame.text)
+
 	def test_unsupported_feature_compression(self):
 		with self.assertRaises(id3parse.ID3UnsupportedFeatureError):
 			byte_array = b'TPE1\x00\x00\x00\x11\x00\x08\x03Die Toten Hosen\x00'
