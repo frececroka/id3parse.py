@@ -45,6 +45,36 @@ TIT2: Why Don't You Get A Job?
 TPE1: The Offspring
 ```
 
+### Loading and saving an ID3 tag
+
+```python
+from id3parse import ID3, ID3TextFrame
+
+id3 = ID3.from_file('01 - The Offspring - Why Dont You Get A Job.mp3')
+
+id3.add_frame(ID3TextFrame.from_scratch('TPE1', 'The Offspring'))
+id3.add_frame(ID3TextFrame.from_scratch('TIT2', 'Why Don\'t You Get A Job?'))
+
+id3.to_file()
+```
+
+### Querying frames
+
+```python
+from id3parse import ID3, ID3TextFrame
+
+id3 = ID3.from_file('01 - The Offspring - Why Dont You Get A Job.mp3')
+
+tpe1 = id3.find_frame_by_name('TPE1')    # Returns a frame, fails if more than one
+tpe1.text = 'The Offspring'              # frame with this name is available
+
+privs = id3.find_frames_by_name('PRIV')  # Returns a list of frames
+for priv in privs:
+    print(priv)
+
+id3.to_file()
+```
+
 ## Available Frames
 
 ### ID3TextFrame
