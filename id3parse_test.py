@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 import id3parse
 
 class TestID3Header(unittest.TestCase):
@@ -94,6 +95,88 @@ class TestID3(unittest.TestCase):
 
 		with self.assertRaises(id3parse.ID3UnsupportedFeatureError):
 			id3.serialize()
+
+	def test_write_to_file_where_file_contains_bigger_tag(self):
+		path = self.make_mp3_with_tag_and_padding()
+
+		id3 = id3parse.ID3.from_file(path)
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TIT2', 'Welcome'))
+		id3.to_file()
+
+		self.verify_id3(path)
+		self.verify_mp3(path)
+
+	def test_write_to_file_where_file_contains_smaller_tag(self):
+		path = self.make_mp3_with_tag()
+
+		id3 = id3parse.ID3.from_file(path)
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TIT2', 'Welcome'))
+		id3.to_file()
+
+		self.verify_id3(path)
+		self.verify_mp3(path)
+
+	def test_write_to_file_where_file_contains_no_tag(self):
+		path = self.make_mp3()
+
+		id3 = id3parse.ID3.from_file(path)
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TPE1', 'The Offspring'))
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TIT2', 'Welcome'))
+		id3.to_file()
+
+		self.verify_id3(path)
+		self.verify_mp3(path)
+
+	def test_load_from_one_file_save_to_another(self):
+		id3 = self.make_id3()
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TIT2', 'Welcome'))
+
+		path = self.make_mp3_with_tag_and_padding()
+		id3.to_file(path)
+
+		self.verify_id3(path)
+		self.verify_mp3(path)
+
+	def make_mp3_with_tag_and_padding(self):
+		id3 = self.make_id3()
+		serialized_tag = id3.serialize(min_length=60)
+		return self.make_mp3(serialized_tag)
+
+	def make_mp3_with_tag(self):
+		id3 = self.make_id3()
+		serialized_tag = id3.serialize()
+		return self.make_mp3(serialized_tag)
+
+	def make_id3(self):
+		id3 = id3parse.ID3.from_scratch()
+		id3.add_frame(id3parse.ID3TextFrame.from_scratch('TPE1', 'The Offspring'))
+		return id3
+
+	def make_mp3(self, serialized_tag=None):
+		path = tempfile.mkstemp()[1]
+		f = open(path, 'wb')
+
+		if serialized_tag is not None:
+			f.write(serialized_tag)
+
+		f.write(b'\xff\xf0...the.mp3.file...')
+		f.close()
+
+		return path
+
+	def verify_id3(self, path):
+		id3 = id3parse.ID3.from_file(path)
+		self.assertEqual(2, len(id3.frames))
+		self.assertEqual('Welcome', id3.find_frame_by_name('TIT2').text)
+		self.assertEqual('The Offspring', id3.find_frame_by_name('TPE1').text)
+
+	def verify_mp3(self, path):
+		f = open(path, 'rb')
+
+		byte_array = f.read()
+		self.assertEqual(b'\xff\xf0...the.mp3.file...', byte_array[-20:])
+
+		f.close()
 
 
 class TestID3Frame(unittest.TestCase):

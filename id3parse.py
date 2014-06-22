@@ -178,7 +178,14 @@ class ID3:
 
 	def from_file(path):
 		file = open(path, 'rb')
-		id3 = ID3.from_input_stream(file)
+
+		try:
+			id3 = ID3.from_input_stream(file)
+		except ID3IllegalFormatError:
+			id3 = ID3.from_scratch()
+
+		id3.initial_path = path
+
 		file.close()
 		return id3
 
@@ -224,6 +231,45 @@ class ID3:
 		header_bytes = self.header.serialize_header()
 
 		return header_bytes + body_bytes + footer_bytes
+
+	def to_file(self, path=None):
+		path = path or self.initial_path
+		if path is None:
+			raise ValueError('Path must be given if saving a tag which was not loaded from a file')
+
+		f = open(path, 'r+b')
+
+		serialized_tag = self.serialize()
+		current_tag_size = len(serialized_tag)
+
+		try:
+			existing_header = ID3Header.from_byte_array(f.read(TAG_HEADER_SIZE))
+			initial_tag_size = existing_header.tag_size + TAG_HEADER_SIZE
+		except ID3IllegalFormatError:
+			initial_tag_size = 0
+
+		def write_tag():
+			f.seek(0)
+			f.write(serialized_tag)
+
+		def write_padding():
+			padding_length = initial_tag_size - current_tag_size
+			padding = b'\x00' * padding_length
+			f.write(padding)
+
+		def read_mp3():
+			f.seek(initial_tag_size)
+			return f.read()
+
+		if current_tag_size <= initial_tag_size:
+			write_tag()
+			write_padding()
+		else:
+			mp3_content = read_mp3()
+			write_tag()
+			f.write(mp3_content)
+
+		f.close()
 
 
 class ID3Header:
