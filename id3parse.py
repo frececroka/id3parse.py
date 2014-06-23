@@ -644,7 +644,6 @@ class ID3TextFrame(ID3Frame):
 	def __str__(self):
 		return self.name + ': ' + self.text
 
-
 ID3Frame.id3_frame_implementations.append(ID3TextFrame)
 
 
@@ -692,7 +691,6 @@ class ID3CommentFrame(ID3Frame):
 
 	def __str__(self):
 		return self.name + ': ' + self.comment
-
 
 ID3Frame.id3_frame_implementations.append(ID3CommentFrame)
 
@@ -742,7 +740,6 @@ class ID3PopularimeterFrame(ID3Frame):
 		play_counter = pack_int(self.play_counter, base=DEFAULT_BASE, min_bytes=4)
 
 		return email + rating + play_counter
-
 
 ID3Frame.id3_frame_implementations.append(ID3PopularimeterFrame)
 
@@ -817,7 +814,6 @@ class ID3PictureFrame(ID3Frame):
 		body.extend(self.binary_picture)
 
 		return body
-
 
 ID3Frame.id3_frame_implementations.append(ID3PictureFrame)
 
