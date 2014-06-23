@@ -239,23 +239,18 @@ class ID3:
 
 		f = open(path, 'r+b')
 
-		serialized_tag = self.serialize()
-		current_tag_size = len(serialized_tag)
-
 		try:
 			existing_header = ID3Header.from_byte_array(f.read(TAG_HEADER_SIZE))
 			initial_tag_size = existing_header.tag_size + TAG_HEADER_SIZE
 		except ID3IllegalFormatError:
 			initial_tag_size = 0
 
+		serialized_tag = self.serialize(min_length=initial_tag_size)
+		current_tag_size = len(serialized_tag)
+
 		def write_tag():
 			f.seek(0)
 			f.write(serialized_tag)
-
-		def write_padding():
-			padding_length = initial_tag_size - current_tag_size
-			padding = b'\x00' * padding_length
-			f.write(padding)
 
 		def read_mp3():
 			f.seek(initial_tag_size)
@@ -263,7 +258,6 @@ class ID3:
 
 		if current_tag_size <= initial_tag_size:
 			write_tag()
-			write_padding()
 		else:
 			mp3_content = read_mp3()
 			write_tag()
