@@ -1,5 +1,7 @@
 # id3parse.py
 
+[![Build Status](https://travis-ci.org/frececroka/id3parse.py.svg?branch=master)](https://travis-ci.org/frececroka/id3parse.py)
+
 An ID3 parser and serializer for Python 3.
 
 ## Example Usage
