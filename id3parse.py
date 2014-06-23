@@ -147,6 +147,30 @@ SYNCHSAFE_BASE = 128
 DEFAULT_BASE = 256
 
 
+class ID3PictureTypes:
+	OTHER = 0x00
+	PNG_FILE_ICON = 0x01
+	OTHER_FILE_ICON = 0x02
+	FRONT_COVER = 0x03
+	BACK_COVER = 0x04
+	LEAFLET_PAGE = 0x05
+	MEDIA = 0x06
+	LEAD_ARTIST = 0x07
+	ARTIST = 0x08
+	CONDUCTOR = 0x09
+	BAND = 0x0a
+	COMPOSER = 0x0b
+	TEXT_WRITER = 0x0c
+	RECORDING_LOCATION = 0x0d
+	DURING_RECORDING = 0x0e
+	DURING_PERFORMANCE = 0x0f
+	VIDEO_SCREEN_CAPTURE = 0x10
+	BRIGHT_COLOURED_FISH = 0x11
+	ILLUSTRATION = 0x12
+	BAND_LOGOTYPE = 0x13
+	PUBLISHER_LOGOTYPE = 0x14
+
+
 class ID3:
 
 	def from_byte_array(byte_array):
@@ -743,8 +767,59 @@ class ID3PlayCounterFrame(ID3Frame):
 	def serialize_body(self):
 		return pack_int(self.play_counter, base=DEFAULT_BASE, min_bytes=4)
 
-
 ID3Frame.id3_frame_implementations.append(ID3PlayCounterFrame)
+
+
+class ID3PictureFrame(ID3Frame):
+
+	def can_handle(name):
+		return name == 'APIC'
+
+	def from_byte_array(header, byte_array):
+		br = ByteReader(byte_array)
+
+		encoding_byte = br.read()
+		encoding, terminator = decode_text_encoding(encoding_byte)
+
+		encoded_mime_type = extract_terminated_string(br.tail(), b'\x00')
+		br.skip(len(encoded_mime_type) + 1)
+		mime_type = encoded_mime_type.decode('iso-8859-1')
+
+		picture_type = br.read()
+
+		encoded_description = extract_terminated_string(br.tail(), terminator)
+		br.skip(len(encoded_description) + len(terminator))
+		description = encoded_description.decode(encoding)
+
+		binary_picture = br.tail()
+
+		return ID3PictureFrame(header, mime_type, picture_type, description, binary_picture)
+
+	def from_scratch(mime_type, picture_type, description, binary_picture):
+		header = ID3FrameHeader.from_name('APIC')
+		return ID3PictureFrame(header, mime_type, picture_type, description, binary_picture)
+
+	def __init__(self, header, mime_type, picture_type, description, binary_picture):
+		super(ID3PictureFrame, self).__init__(header)
+
+		self.mime_type = mime_type
+		self.picture_type = picture_type
+		self.description = description
+		self.binary_picture = binary_picture
+
+	def serialize_body(self):
+		body = bytearray()
+
+		body.append(0x03)
+		body.extend(self.mime_type.encode('iso-8859-1') + b'\x00')
+		body.append(self.picture_type)
+		body.extend(self.description.encode('utf-8') + b'\x00')
+		body.extend(self.binary_picture)
+
+		return body
+
+
+ID3Frame.id3_frame_implementations.append(ID3PictureFrame)
 
 
 class ID3UnknownFrame(ID3Frame):

@@ -372,6 +372,21 @@ class TestID3PlayCounterFrame(unittest.TestCase):
 		self.assertEqual(9999999999, frame.play_counter)
 
 
+class TestID3PictureFrame(unittest.TestCase):
+
+	def test_serialization(self):
+		frame = id3parse.ID3PictureFrame.from_scratch('image/jpeg', id3parse.ID3PictureTypes.BRIGHT_COLOURED_FISH, 'A bright coloured fish', b'....the...picture....')
+		self.assertEqual(b'APIC\x00\x00\x009\x00\x00\x03image/jpeg\x00\x11A bright coloured fish\x00....the...picture....', frame.serialize())
+
+	def test_deserialization(self):
+		frame = id3parse.ID3Frame.from_byte_array(b'APIC\x00\x00\x009\x00\x00\x03image/jpeg\x00\x11A bright coloured fish\x00....the...picture....')
+
+		self.assertEqual('image/jpeg', frame.mime_type)
+		self.assertEqual(id3parse.ID3PictureTypes.BRIGHT_COLOURED_FISH, frame.picture_type)
+		self.assertEqual('A bright coloured fish', frame.description)
+		self.assertEqual(b'....the...picture....', frame.binary_picture)
+
+
 class TestID3UnknownFrame(unittest.TestCase):
 
 	def test_average_case(self):
